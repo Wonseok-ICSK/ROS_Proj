@@ -45,7 +45,7 @@ class DriveProtocolTests(unittest.TestCase):
                     self.gpio.input.side_effect = dict(zip(pins, map(int, bits))).__getitem__
                     self.ros.is_shutdown.side_effect = (False, True)
                     publish.reset_mock()
-                    runpy.run_path(str(SRC / "ir/src/IR.py"), run_name="__main__")
+                    runpy.run_path(str(SRC / "ir_line_tracking/IR.py"), run_name="__main__")
                     publish.assert_called_once_with(expected.get(raw, "stop"))
         self.ros.Publisher.assert_called_with("ctrlCmd", str, queue_size=10)
         self.gpio.setmode.assert_called_with(self.gpio.BOARD)
@@ -60,7 +60,7 @@ class DriveProtocolTests(unittest.TestCase):
         self.ros.Publisher.return_value.publish.side_effect = (
             lambda cmd: sent.append((port.readline.call_count, cmd))
         )
-        runpy.run_path(str(SRC / "radar/src/radar_publisher.py"), run_name="__main__")
+        runpy.run_path(str(SRC / "radar_stop_bridge/radar_publisher.py"), run_name="__main__")
         self.assertEqual(sent, [(6, "stop"), (7, "stop")])
         self.ros.Publisher.assert_called_once_with("radar", str, queue_size=10)
         self.ros.get_param.assert_called_once_with("~serial_port", "/dev/ttyUSB0")
@@ -74,7 +74,7 @@ class DriveProtocolTests(unittest.TestCase):
         self.ros.is_shutdown.return_value = False
         with patch.dict(sys.modules, {"termios": terminal, "tty": tty}), patch.object(sys, "stdin", stdin):
             with patch("builtins.print"), self.assertRaises(SystemExit) as exit_event:
-                runpy.run_path(str(SRC / "teleop_key/src/tel.py"), run_name="__main__")
+                runpy.run_path(str(SRC / "keyboard_teleop/tel.py"), run_name="__main__")
 
         self.assertEqual(exit_event.exception.code, -1)
         self.ros.Publisher.assert_called_once_with("ctrlCmd", str, queue_size=10)
@@ -118,7 +118,7 @@ class DriveProtocolTests(unittest.TestCase):
 
         self.ros.spin.side_effect = exercise_subscribers
         with patch("builtins.print"):
-            runpy.run_path(str(SRC / "motor/src/motor_ctrl.py"), run_name="__main__")
+            runpy.run_path(str(SRC / "wheel_motor_control/motor_ctrl.py"), run_name="__main__")
         self.ros.spin.assert_called_once_with()
         self.gpio.setmode.assert_called_once_with(self.gpio.BCM)
         self.gpio.PWM.assert_has_calls([call(13, 1000), call(12, 1000)], any_order=True)

@@ -42,7 +42,7 @@ flowchart LR
 
 전진 명령 철자 `foward`와 좌우 보정값은 원본 송수신 규약을 유지했다. 키보드 입력은 한 글자가 들어올 때까지 기다리며, 키를 놓는 동작에는 메시지가 발생하지 않는다.
 
-IR 노드는 왼쪽부터 오른쪽 순서로 센서를 읽고 LOW 입력을 감지(`1`)로 해석한다. 감지 패턴 `00000`은 `start`, `10001`은 `foward`다. 좌우 선회 패턴은 [IR 명령표](catkin_ws/src/ir/src/IR.py)에 있고 나머지는 모두 `stop`이다. SD 카드 원본에는 배선과 극성이 다른 코드가 뒤에 두 번 더 붙어 있어, 실제 진입 시 먼저 실행되던 루프의 동작을 기준으로 정리했다.
+IR 노드는 왼쪽부터 오른쪽 순서로 센서를 읽고 LOW 입력을 감지(`1`)로 해석한다. 감지 패턴 `00000`은 `start`, `10001`은 `foward`다. 좌우 선회 패턴은 [IR 명령표](catkin_ws/src/ir_line_tracking/IR.py)에 있고 나머지는 모두 `stop`이다. SD 카드 원본에는 배선과 극성이 다른 코드가 뒤에 두 번 더 붙어 있어, 실제 진입 시 먼저 실행되던 루프의 동작을 기준으로 정리했다.
 
 **레이더 정지 뒤에도 IR이 `00000`을 읽거나 사용자가 `i`를 누르면 다시 출발한다.** 두 토픽이 동시에 명령을 보내면 모터는 한 번에 한 명령씩 적용한다. 레이더에 우선권을 주거나 정지를 유지하는 별도 인터록은 없다. 운전할 때는 IR과 키보드 중 한 쪽을 주행 명령 발행기로 실행한다.
 
@@ -86,9 +86,9 @@ source devel/setup.bash
 
 ## 펌웨어와 독립 예제
 
-- [MRS-10G Arduino 스케치](firmware/mrs10g_radar/mrs10g_radar.ino)는 센서의 두 바이트를 하위 바이트부터 읽는다. 기본 설정은 원시값 120 이하에서 `1`을 보낸다. `USE_DEC12_PROFILE`을 `true`로 바꾸면 두 번째 원본의 임계값 20과 출력 후 지연 300 ms를 적용한다.
-- [레이더 시리얼 모니터](examples/radar_serial_monitor.py)는 pySerial로 Arduino 출력을 직접 표시한다. ROS 레이더 노드가 포트를 사용하고 있다면 먼저 해당 노드를 종료한다.
-- [Pure Pursuit 시뮬레이션](examples/purepursuit.py)은 NumPy와 Matplotlib로 경로와 차체의 위치·방향을 그린다. `python3 examples/purepursuit.py`로 실행한다. 원본의 목표점 선택식이 현재 위치에서 각 점까지의 거리를 합산하므로 중간 웨이포인트를 건너뛸 수 있다.
+- [MRS-10G Arduino 스케치](arduino_firmware/mrs10g_radar/mrs10g_radar.ino)는 센서의 두 바이트를 하위 바이트부터 읽는다. 기본 설정은 원시값 120 이하에서 `1`을 보낸다. `USE_DEC12_PROFILE`을 `true`로 바꾸면 두 번째 원본의 임계값 20과 출력 후 지연 300 ms를 적용한다.
+- [레이더 시리얼 모니터](radar_diagnostics/radar_serial_monitor.py)는 pySerial로 Arduino 출력을 직접 표시한다. ROS 레이더 노드가 포트를 사용하고 있다면 먼저 해당 노드를 종료한다.
+- [Pure Pursuit 시뮬레이션](path_simulation/purepursuit.py)은 NumPy와 Matplotlib로 경로와 차체의 위치·방향을 그린다. `python3 path_simulation/purepursuit.py`로 실행한다. 원본의 목표점 선택식이 현재 위치에서 각 점까지의 거리를 합산하므로 중간 웨이포인트를 건너뛸 수 있다.
 
 ## 검증
 
@@ -115,14 +115,14 @@ This ROS Noetic project runs a two-wheel Raspberry Pi robot. Five infrared senso
 
 | Source | What it does and where its output goes |
 | --- | --- |
-| [IR.py](catkin_ws/src/ir/src/IR.py) | Reads five active-low GPIO inputs from left to right about every 0.1 seconds. Looks up the pattern and publishes a drive command on `ctrlCmd`. |
-| [tel.py](catkin_ws/src/teleop_key/src/tel.py) | Reads one terminal keystroke at a time and publishes on the same `ctrlCmd` topic. Releasing a key sends no message. |
-| [motor_ctrl.py](catkin_ws/src/motor/src/motor_ctrl.py) | Subscribes to `ctrlCmd` and `radar`. Converts commands into PWM duty cycles, direction levels and brake outputs for the two motors. Both topics carry `std_msgs/String`. |
-| [mrs10g_radar.ino](firmware/mrs10g_radar/mrs10g_radar.ino) | Runs on the Arduino. Reads two bytes from the radar over I²C, low byte first. Sends one line containing `1` when the raw value is at or below the threshold, or `0` otherwise. The default threshold is 120. Setting `USE_DEC12_PROFILE` to true selects the original alternate threshold of 20 and a 300 ms reporting delay. |
-| [radar_publisher.py](catkin_ws/src/radar/src/radar_publisher.py) | Reads the Arduino serial stream at 9600 baud. Each complete `1` line publishes one `stop` on `radar`. A `0` line leaves the motor state unchanged. |
+| [IR.py](catkin_ws/src/ir_line_tracking/IR.py) | Reads five active-low GPIO inputs from left to right about every 0.1 seconds. Looks up the pattern and publishes a drive command on `ctrlCmd`. |
+| [tel.py](catkin_ws/src/keyboard_teleop/tel.py) | Reads one terminal keystroke at a time and publishes on the same `ctrlCmd` topic. Releasing a key sends no message. |
+| [motor_ctrl.py](catkin_ws/src/wheel_motor_control/motor_ctrl.py) | Subscribes to `ctrlCmd` and `radar`. Converts commands into PWM duty cycles, direction levels and brake outputs for the two motors. Both topics carry `std_msgs/String`. |
+| [mrs10g_radar.ino](arduino_firmware/mrs10g_radar/mrs10g_radar.ino) | Runs on the Arduino. Reads two bytes from the radar over I²C, low byte first. Sends one line containing `1` when the raw value is at or below the threshold, or `0` otherwise. The default threshold is 120. Setting `USE_DEC12_PROFILE` to true selects the original alternate threshold of 20 and a 300 ms reporting delay. |
+| [radar_publisher.py](catkin_ws/src/radar_stop_bridge/radar_publisher.py) | Reads the Arduino serial stream at 9600 baud. Each complete `1` line publishes one `stop` on `radar`. A `0` line leaves the motor state unchanged. |
 | [RPLIDAR driver](catkin_ws/src/rplidar_ros) | The pinned upstream package uses `src/node.cpp` to publish distances on `scan` as `sensor_msgs/LaserScan`. RViz can display them, and `src/client.cpp` prints angles and ranges. The drive controller has no subscription to `scan`. |
-| [radar_serial_monitor.py](examples/radar_serial_monitor.py) | Prints raw Arduino lines using pySerial. Run it with the ROS serial publisher stopped so the monitor can use the port. |
-| [purepursuit.py](examples/purepursuit.py) | Simulates motion between waypoints using NumPy and Matplotlib. Run `python3 examples/purepursuit.py` from the repository root. The original target selection can skip intermediate waypoints. The simulation sends no ROS drive commands. |
+| [radar_serial_monitor.py](radar_diagnostics/radar_serial_monitor.py) | Prints raw Arduino lines using pySerial. Run it with the ROS serial publisher stopped so the monitor can use the port. |
+| [purepursuit.py](path_simulation/purepursuit.py) | Simulates motion between waypoints using NumPy and Matplotlib. Run `python3 path_simulation/purepursuit.py` from the repository root. The original target selection can skip intermediate waypoints. The simulation sends no ROS drive commands. |
 | [test_drive_protocol.py](tests/test_drive_protocol.py) | Exercises the four Python nodes with simulated GPIO, keyboard and serial input. Checks command spelling, motor outputs and the timing of radar stop messages. |
 
 ### Driving and wiring
