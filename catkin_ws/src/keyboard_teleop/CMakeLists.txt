@@ -4,6 +4,6 @@ project(teleop_key)
 find_package(catkin REQUIRED)
 catkin_package()
 
-catkin_install_python(PROGRAMS src/tel.py
+catkin_install_python(PROGRAMS tel.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
