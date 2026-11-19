@@ -4,6 +4,6 @@ project(motor)
 find_package(catkin REQUIRED)
 catkin_package()
 
-catkin_install_python(PROGRAMS src/motor_ctrl.py
+catkin_install_python(PROGRAMS motor_ctrl.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
