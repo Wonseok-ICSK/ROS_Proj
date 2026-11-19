@@ -4,6 +4,6 @@ project(radar)
 find_package(catkin REQUIRED)
 catkin_package()
 
-catkin_install_python(PROGRAMS src/radar_publisher.py
+catkin_install_python(PROGRAMS radar_publisher.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
