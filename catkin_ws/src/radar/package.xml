@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>radar</name>
+  <version>0.0.0</version>
+  <description>Publishes stop commands from Arduino radar detections.</description>
+  <maintainer email="soda@todo.todo">soda</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>python3-serial</exec_depend>
+</package>

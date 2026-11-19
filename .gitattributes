@@ -1,0 +1,7 @@
+# Windows에서 체크아웃해도 ROS 실행 스크립트의 줄끝을 LF로 유지한다.
+* text=auto
+*.py text eol=lf
+*.sh text eol=lf
+*.ino text eol=lf
+*.xml text eol=lf
+CMakeLists.txt text eol=lf

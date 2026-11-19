@@ -1,0 +1,21 @@
+# SD 카드 추출 기록, 편집기 이력 및 원본 사본
+/Desktop/
+/sketchbook/
+/editor_history/
+/recovered_sources/
+/sd_card_originals/
+/SD_CARD_EXPORT_MANIFEST.json
+/home_CMakeLists.txt
+/README_KO.md
+
+# catkin이 각 작업공간에서 생성하는 파일
+/catkin_ws/build*/
+/catkin_ws/devel*/
+/catkin_ws/install*/
+/catkin_ws/log*/
+/catkin_ws/.catkin_tools/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
