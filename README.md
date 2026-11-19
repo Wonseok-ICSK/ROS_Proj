@@ -1,8 +1,24 @@
 # ROS 라인 트레이싱 로봇
 
+[한국어 개요](#노드와-데이터-흐름) · [English guide](#english-guide)
+
 Ubuntu 20.04와 ROS Noetic에서 사용한 Raspberry Pi 이륜 로봇 프로젝트다. IR 센서 5개로 주행 방향을 결정하고, Arduino에 연결한 MRS-10G 레이더가 움직임을 감지하면 모터에 정지 명령을 보낸다. 키보드로도 같은 모터를 제어할 수 있다.
 
 ## 노드와 데이터 흐름
+
+```mermaid
+flowchart LR
+    IR["IR 센서 5개"] --> I["IR.py"]
+    K["키보드"] --> T["tel.py"]
+    I -->|ctrlCmd| M["motor_ctrl.py"]
+    T -->|ctrlCmd| M
+    R["MRS-10G"] -->|I²C| A["mrs10g_radar.ino"]
+    A -->|USB 시리얼 1 또는 0| P["radar_publisher.py"]
+    P -->|radar 토픽의 stop| M
+    M -->|GPIO / PWM| W["좌우 모터"]
+    L["RPLIDAR"] --> N["rplidarNode"]
+    N -->|scan| V["RViz 또는 rplidarNodeClient"]
+```
 
 | 입력 | 처리하는 노드 | 출력 |
 | --- | --- | --- |
@@ -90,3 +106,74 @@ python3 -m unittest discover -s tests -v
 | 경로 추종 예제 | 기본 경로에서 224스텝 후 목표 반경 0.1에 진입했다. 이때 종점까지의 거리는 약 0.043이었다. |
 
 원래 Arduino 보드 모델과 실제 차체의 배선, 센서 감지 성능, 제동 거리는 실기 검증이 필요하다.
+
+## English guide
+
+This ROS Noetic project runs a two-wheel Raspberry Pi robot. Five infrared sensors provide steering input for line following. A keyboard can drive the same motors manually. A separate Arduino reads an MRS-10G motion radar and reports detections over USB. The project also includes a RPLIDAR laser scanner and a stand-alone path-following simulation.
+
+### Source map
+
+| Source | What it does and where its output goes |
+| --- | --- |
+| [IR.py](catkin_ws/src/ir/src/IR.py) | Reads five active-low GPIO inputs from left to right about every 0.1 seconds. Looks up the pattern and publishes a drive command on `ctrlCmd`. |
+| [tel.py](catkin_ws/src/teleop_key/src/tel.py) | Reads one terminal keystroke at a time and publishes on the same `ctrlCmd` topic. Releasing a key sends no message. |
+| [motor_ctrl.py](catkin_ws/src/motor/src/motor_ctrl.py) | Subscribes to `ctrlCmd` and `radar`. Converts commands into PWM duty cycles, direction levels and brake outputs for the two motors. Both topics carry `std_msgs/String`. |
+| [mrs10g_radar.ino](firmware/mrs10g_radar/mrs10g_radar.ino) | Runs on the Arduino. Reads two bytes from the radar over I²C, low byte first. Sends one line containing `1` when the raw value is at or below the threshold, or `0` otherwise. The default threshold is 120. Setting `USE_DEC12_PROFILE` to true selects the original alternate threshold of 20 and a 300 ms reporting delay. |
+| [radar_publisher.py](catkin_ws/src/radar/src/radar_publisher.py) | Reads the Arduino serial stream at 9600 baud. Each complete `1` line publishes one `stop` on `radar`. A `0` line leaves the motor state unchanged. |
+| [RPLIDAR driver](catkin_ws/src/rplidar_ros) | The pinned upstream package uses `src/node.cpp` to publish distances on `scan` as `sensor_msgs/LaserScan`. RViz can display them, and `src/client.cpp` prints angles and ranges. The drive controller has no subscription to `scan`. |
+| [radar_serial_monitor.py](examples/radar_serial_monitor.py) | Prints raw Arduino lines using pySerial. Run it with the ROS serial publisher stopped so the monitor can use the port. |
+| [purepursuit.py](examples/purepursuit.py) | Simulates motion between waypoints using NumPy and Matplotlib. Run `python3 examples/purepursuit.py` from the repository root. The original target selection can skip intermediate waypoints. The simulation sends no ROS drive commands. |
+| [test_drive_protocol.py](tests/test_drive_protocol.py) | Exercises the four Python nodes with simulated GPIO, keyboard and serial input. Checks command spelling, motor outputs and the timing of radar stop messages. |
+
+### Driving and wiring
+
+Run one steering source at a time. For example, pressing `a` publishes `left` on `ctrlCmd`. The motor node sets the left wheel to 10% duty and the right to 14%, turning the robot left. The deployed protocol spells forward as `foward`.
+
+| Key | Command | Motor output (left / right duty) |
+| --- | --- | --- |
+| `i` | `start` | Releases both brakes and immediately drives forward at 11% / 10%. |
+| `w` | `foward` | Sets forward duty to 11% / 10%. |
+| `a` / `d` | `left` / `right` | Turns at 10% / 14% or 16% / 10%, respectively. |
+| Other keys, including `q` | `stop` | Sets both wheels to 0% and engages both brakes. `q` also exits the keyboard node. |
+
+**A radar stop lasts until the next `start`.** The IR pattern `00000` (all sensors inactive) or the keyboard's `i` key can restart the robot. There is no radar priority or stop latch. In the IR table, `1` denotes an active sensor. Pattern `10001` requests forward motion and unmapped patterns request a stop. The table preserves the behavior of the first loop that ran in the recovered source.
+
+| Device | Pin assignments |
+| --- | --- |
+| IR array | Raspberry Pi physical header numbers (`BOARD`) 16, 13, 11, 18, 21 from left to right. |
+| Left motor | Raspberry Pi `BCM` PWM 13, direction 6, brake 20. |
+| Right motor | Raspberry Pi `BCM` PWM 12, direction 16, brake 21. |
+| MRS-10G | Arduino A1 enables power, A2 signals data ready, I²C address `0x0A`. |
+
+Motor PWM runs at 1 kHz. Forward motion uses LOW on the left direction pin and HIGH on the right. Both brakes are active HIGH.
+
+### Build and run
+
+Use Ubuntu 20.04 with ROS Noetic ros-base, catkin and an initialized rosdep. The Pi running the IR and motor nodes also needs the Python 3 `RPi.GPIO` module.
+
+```bash
+git clone --recurse-submodules https://github.com/Wonseok-ICSK/ROS_Proj.git
+cd ROS_Proj/catkin_ws
+source /opt/ros/noetic/setup.bash
+rosdep install --from-paths src --ignore-src -r -y --rosdistro noetic
+catkin_make
+source devel/setup.bash
+```
+
+For an existing clone, run `git submodule update --init --recursive` at the repository root. If the rosdep cache lacks Noetic, refresh it with `rosdep update --include-eol-distros`.
+
+Start `roscore`. Source the workspace's `devel/setup.bash` in each new terminal and run the desired nodes separately.
+
+| Purpose | Command |
+| --- | --- |
+| Motor output | `rosrun motor motor_ctrl.py` |
+| Manual steering | `rosrun teleop_key tel.py` |
+| IR steering | `rosrun ir IR.py` |
+| Radar stop input | `rosrun radar radar_publisher.py _serial_port:=/dev/ttyUSB1` |
+| RPLIDAR A1/A2 scan | `roslaunch rplidar_ros rplidar.launch` |
+
+Both serial nodes default to `/dev/ttyUSB0`. The example assumes the scanner uses USB0 and the Arduino uses USB1. Adjust the radar port to match the actual devices. With the motor node stopped, use `rostopic echo /ctrlCmd` or `rostopic echo /radar` to inspect commands.
+
+### Verification
+
+Run `python3 -m unittest discover -s tests -v` from the repository root. The tests cover all 32 IR input combinations, keyboard commands, motor outputs and serial stop detection. All five catkin packages passed a Release build and install on Ubuntu 20.04 amd64 with Noetic catkin 0.8.12. Both firmware profiles compiled and linked for a representative Arduino Uno target with AVR core 1.8.6. The default simulation reached its goal radius of 0.1 after 224 steps, with about 0.043 remaining to the endpoint. The original Arduino model, chassis wiring, sensor performance and physical stopping distance still need hardware verification.
