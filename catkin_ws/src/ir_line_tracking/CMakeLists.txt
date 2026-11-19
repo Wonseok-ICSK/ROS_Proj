@@ -4,6 +4,6 @@ project(ir)
 find_package(catkin REQUIRED)
 catkin_package()
 
-catkin_install_python(PROGRAMS src/IR.py
+catkin_install_python(PROGRAMS IR.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
