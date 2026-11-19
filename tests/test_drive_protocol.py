@@ -66,6 +66,24 @@ class DriveProtocolTests(unittest.TestCase):
         self.ros.get_param.assert_called_once_with("~serial_port", "/dev/ttyUSB0")
         self.serial.Serial.assert_called_once_with("/dev/ttyUSB1", 9600, timeout=0.2)
 
+    def test_keyboard_commands_and_quit(self):
+        terminal, tty, stdin = Mock(), Mock(), Mock()
+        stdin.fileno.return_value = 0
+        keys = "iwad xq"
+        stdin.read.side_effect = list(keys)
+        self.ros.is_shutdown.return_value = False
+        with patch.dict(sys.modules, {"termios": terminal, "tty": tty}), patch.object(sys, "stdin", stdin):
+            with patch("builtins.print"), self.assertRaises(SystemExit) as exit_event:
+                runpy.run_path(str(SRC / "teleop_key/src/tel.py"), run_name="__main__")
+
+        self.assertEqual(exit_event.exception.code, -1)
+        self.ros.Publisher.assert_called_once_with("ctrlCmd", str, queue_size=10)
+        commands = ["start", "foward", "left", "right", "stop", "stop", "stop"]
+        self.assertEqual(self.ros.Publisher.return_value.publish.call_args_list,
+                         [call(command) for command in commands])
+        restore = call(0, terminal.TCSADRAIN, terminal.tcgetattr.return_value)
+        self.assertEqual(terminal.tcsetattr.call_args_list, [restore] * len(keys))
+
     def test_motor_subscribers_apply_brakes_and_calibrated_duties(self):
         left, right = Mock(), Mock()
         self.gpio.PWM.side_effect = lambda pin, hz: {13: left, 12: right}[pin]
